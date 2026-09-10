@@ -29,6 +29,7 @@ public class OrdinateurServiceImpl implements OrdinateurService {
         Service service = serviceRepository.findById(serviceId).orElseThrow(
                 () -> new ServiceNotFoundException("Service not found")
         );
+        //pc need to be unique by name,macaddress and Ipaddress
         checkPcUniqueness(createOrdinateurRequestDto.getNom(), createOrdinateurRequestDto.getMacAdress(), createOrdinateurRequestDto.getAddressIp());
 
         Ordinateur ordinateur = new Ordinateur();
@@ -49,6 +50,7 @@ public class OrdinateurServiceImpl implements OrdinateurService {
         Ordinateur ordinateur = ordinateurRepository.findById(ordinateurId).orElseThrow(
                 () -> new OrdinateurNotFoundException("Ordinateur n'existe pas")
         );
+        //same logic but those infos need to be in other pc other than the one we are trying to edit
         checkPcUniquenessForEdit(createOrdinateurRequestDto.getNom(),
                 createOrdinateurRequestDto.getMacAdress(),
                 createOrdinateurRequestDto.getAddressIp(),

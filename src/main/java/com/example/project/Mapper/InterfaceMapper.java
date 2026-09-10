@@ -24,6 +24,7 @@ public interface InterfaceMapper {
     @Mapping(target = "alert", source = "alerts")
     GetInterfaceDetailsResponseDto toDto(Interface Interface);
     default ActiveConnectionForInterfaceResponseDto toActiveConnectionDto(List<Connection> connections){
+        // we only get active connection from the whole list of connections
         Optional<Connection> con =connections
                 .stream()
                 .filter(c-> c.getStatus()== CONNECTION_STATUS_ENUM.ACTIVE)
@@ -41,6 +42,7 @@ public interface InterfaceMapper {
         return null;
     }
     default ActiveAlert  toActiveAlertDto(List<Alert> alerts){
+        // we only get the alert if it's not older than 30s because it represents the latest switch state if its older than 30s it means the interface doesn't have any issue anymore because we create new alert for each iteration
         Optional<Alert> alert= alerts
                 .stream()
                 .filter(a-> a.getCreatedAt().isAfter(LocalDateTime.now().minusSeconds(30)))

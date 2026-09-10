@@ -20,7 +20,7 @@ public class NotificationListener {
 
     @TransactionalEventListener(
             phase = TransactionPhase.AFTER_COMMIT
-    )
+    )// always send notification until after commit to make sure that the notification actually represents database state
     public void handleInterfaceDown(InterfaceDownEvent event) {
         NotificationDto message = new NotificationDto(
                 "L'interface " + event.interfaceName() + " est à DOWN",

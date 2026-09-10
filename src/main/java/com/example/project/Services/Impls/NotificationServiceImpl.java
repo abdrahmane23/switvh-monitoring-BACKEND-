@@ -25,7 +25,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public class NotificationServiceImpl implements NotificationService {
     private final NotificationRepo notificationRepo;
 
-    private final List<SseEmitter> usersList = new CopyOnWriteArrayList<>();
+    private final List<SseEmitter> usersList = new CopyOnWriteArrayList<>();//we dont have user specific notifications thats why we used a list and it need to be a copyOnWriteList so we can remove while iterating
 
     @Override
     public SseEmitter SubscribeToNotifications() {

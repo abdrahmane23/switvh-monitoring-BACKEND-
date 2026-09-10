@@ -19,7 +19,7 @@ import java.util.Optional;
 public interface OrdinateurMapper {
     @Mapping(target ="connection",source = "connections")
     GetOrdinateurDetailsResponeDto toDto(Ordinateur ordinateur);
-
+    //we get only active connection
     default ActiveConnectionForPcResponseDto toActiveConnectionDto(List<Connection> connections){
         Optional<Connection> con =connections
                 .stream()

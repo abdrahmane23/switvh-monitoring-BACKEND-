@@ -32,7 +32,7 @@ public class SwitchMonitorer {
         for (Switch sw : switches) {
             try {
                 monitoringService.monitorSwitch(sw);
-            } catch (SwitchConnectionException ex) {
+            } catch (SwitchConnectionException ex) {// catch the exception tha might be thrown by the monitoring method in order to not block other switches that might encounter no problems
                 System.out.println(ex);
             }
         }

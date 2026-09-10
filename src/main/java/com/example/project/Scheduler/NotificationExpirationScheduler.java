@@ -12,7 +12,7 @@ public class NotificationExpirationScheduler {
     private final NotificationService notificationService;
     @Scheduled(fixedRate = 60 * 60 * 1000)
     public void deleteExpiredNotifications(){
-        notificationService.deleteExpiredNotifications();
+        notificationService.deleteExpiredNotifications();//delete outdated notification especially that synchronization happens every 30seconds
 
     }
 }

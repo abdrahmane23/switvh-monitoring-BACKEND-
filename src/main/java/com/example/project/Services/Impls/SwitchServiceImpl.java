@@ -37,6 +37,7 @@ public class SwitchServiceImpl implements SwitchService {
     @Override
     @Transactional
     public void createSwitch(CreateSwitchRequestDto newSwitch) {
+        //switch need to be unique by name and ipaddress
         if (switchRepo.existsByNom(newSwitch.getNom())) {
             throw new SwitchAlreadyExistsException("Switch avec ce nom  existe déjà");
         }
@@ -78,7 +79,7 @@ public class SwitchServiceImpl implements SwitchService {
     public void makeSwitchDown(Switch sw) {
         sw.setStatus(SWITCH_STATUS_ENUM.NON_CONNECTE);
         switchRepo.save(sw);
-        eventPublisher.publishEvent(new SwitchDownEvent(sw.getNom()));
+        eventPublisher.publishEvent(new SwitchDownEvent(sw.getNom()));//notify about disconnected switch
     }
 
     @Override

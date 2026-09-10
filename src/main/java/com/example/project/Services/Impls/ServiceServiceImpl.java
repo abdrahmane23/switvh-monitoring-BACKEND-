@@ -23,7 +23,7 @@ public class ServiceServiceImpl implements ServiceService {
     @Override
     @Transactional
     public void createService(CreateServiceRequestDto createServiceRequestDto) {
-
+        //service need to be unique by name
         checkServiceUniqueness(createServiceRequestDto.getNom());
 
         Service service = new Service();

@@ -50,11 +50,14 @@ public class MonitoringServiceImpl implements MonitoringService {
     @Transactional
     public void monitorSwitch(Switch sw)  {
         Instant start = Instant.now();
-        String vlanBrief ;
-        String interfaceInfos ;
-        String macAdresse ;
+        List<String>listOfResponses=new ArrayList<>();
+        List<String> listOfCommands = List.of(
+                "show vlan brief ",
+                "show interfaces status ",
+                "show mac address-table "
+        );
 
-        if (sw.getSshConnection() != null) {
+        if (sw.getSshConnection() != null) {//SSH is considered as the main way of connection
             SshClient sshClient = SshClient.setUpDefaultClient();
             sshClient.start();
             try (ClientSession session =
@@ -64,21 +67,24 @@ public class MonitoringServiceImpl implements MonitoringService {
                 session.addPasswordIdentity(encryptionService.decrypt(sw.getSshConnection().getPassword()));
                 session.auth().verify();
 
-                session.executeRemoteCommand("terminal length 0");
-                vlanBrief = session.executeRemoteCommand("show vlan brief");
-                interfaceInfos = session.executeRemoteCommand("show interfaces status");
-                macAdresse = session.executeRemoteCommand("show mac address-table");
+                session.executeRemoteCommand("terminal length 0");//to disable pagination for that exact session in order to simplify logic and response parsing
+                for (int i = 0 ; i< listOfCommands.size();i++)
+                    listOfResponses.add(
+                            i,
+                            session.executeRemoteCommand(listOfCommands.get(i))
+                    );
                 sw.setStatus(SWITCH_STATUS_ENUM.CONNECTE);
 
             } catch (IOException ex) {
-                switchService.makeSwitchDown(sw);
+                //if any error occured during connection we catched and turn it into our buissness related exception
+                switchService.makeSwitchDown(sw);//we turn switch status as in_active in order to appear to the client and not take current infos as accurate
                 throw new SwitchConnectionException("Erreur lors de la connexion SSH au switch: " + sw.getNom()+" si le problem persist verify les informations de votre switch ");
             }
             finally {
                 sshClient.stop();
             }
         }
-        else {
+        else {// if SSH doesnt exist we go to our default connection using Telnet
             TelnetClient telnetClient = new TelnetClient();
             try{
 
@@ -87,17 +93,20 @@ public class MonitoringServiceImpl implements MonitoringService {
                 InputStream input = telnetClient.getInputStream();
 
 
-                executeTelnetAuth(encryptionService.decrypt(sw.getTelnetConnection().getPassword()),input,output);
+                executeTelnetAuth(encryptionService.decrypt(sw.getTelnetConnection().getPassword()),input,output);//implement telnet authentication flow because the used library doesnt provide it
 
                 getTelnetResponse("terminal length 0"+System.lineSeparator(),input,output);
-                vlanBrief= extractTelnetCommandOutput(getTelnetResponse("show vlan brief "+System.lineSeparator(),input,output));
-                interfaceInfos = extractTelnetCommandOutput(getTelnetResponse("show interfaces status "+System.lineSeparator(),input,output));
-                macAdresse = extractTelnetCommandOutput(getTelnetResponse("show mac address-table "+System.lineSeparator(),input,output));
-                sw.setStatus(SWITCH_STATUS_ENUM.CONNECTE);
+
+                for (int i = 0 ; i< listOfCommands.size();i++)
+                    listOfResponses.add(
+                            i,
+                            extractTelnetCommandOutput(getTelnetResponse(listOfCommands.get(i),input,output))
+                    );
+                sw.setStatus(SWITCH_STATUS_ENUM.CONNECTE);// onc we get all our responses we set the switch as active
 
 
             } catch (IOException e) {
-                switchService.makeSwitchDown(sw);
+                switchService.makeSwitchDown(sw);//same connection error handling as SSH connection
                 throw new SwitchConnectionException("Erreur lors de la connexion telnet au switch: " + sw.getNom()+" si le problem persist verify les informations de votre switch ");
             }
             finally {
@@ -106,13 +115,13 @@ public class MonitoringServiceImpl implements MonitoringService {
                         telnetClient.disconnect();
                     }
                 } catch (IOException e) {
-                    System.out.println("Failed to close Telnet connection");
+                    System.out.println("Failed to close Telnet connection");// to not let disconnection errors stop our transaction
                 }
             }
         }
-        synchronizeVlans(sw, vlanBrief);
-        synchronizeInterfaces(sw, interfaceInfos);
-        synchronizeMacAddresses(sw, macAdresse);
+        synchronizeVlans(sw, listOfResponses.get(0));
+        synchronizeInterfaces(sw, listOfResponses.get(1));
+        synchronizeMacAddresses(sw, listOfResponses.get(2));
         Instant end = Instant.now();
         System.out.println("Monitoring du switch " + sw.getNom() + " terminé en " + (end.toEpochMilli() - start.toEpochMilli()) + " ms");
     }
@@ -196,25 +205,25 @@ public class MonitoringServiceImpl implements MonitoringService {
 
 
     private void synchronizeVlans(Switch sw, String vlanBrief) {
-        List<Vlan> retreivedVlans = parseVlanInfos(vlanBrief);
-        List<Vlan> existingVlans = sw.getVlans();
+        List<Vlan> retreivedVlans = parseVlanInfos(vlanBrief);// get the vlans existing in the response
+        List<Vlan> existingVlans = sw.getVlans();//get vlans that existts in our database for that exact switch
 
 
         for (Vlan vlan : retreivedVlans) {
-            if (!existingVlans.contains(vlan)) {
+            if (!existingVlans.contains(vlan)) {//if a vlan doesnt exist in database we add it
                 vlan.setSwitchEntity(sw);
                 existingVlans.add(vlan);
                 vlanRepo.save(vlan);
-            }else{
+            }else{//if a vlan do exist in database we need to update its state
                 Vlan existingVlan = existingVlans.get(existingVlans.indexOf(vlan));
                 existingVlan.setNumero(vlan.getNumero());
                 existingVlan.setStatus(vlan.getStatus());
             }
         }
 
-        List<Vlan> vlansToRemove = new ArrayList<>();
+        List<Vlan> vlansToRemove = new ArrayList<>();//create a list of vlans to remove to not have concurrent modification exception
 
-        for (Vlan vlan : existingVlans) {
+        for (Vlan vlan : existingVlans) {// if a database vlan doesnt exist in response it will be removed with it corresponding interfaces also
             if (!retreivedVlans.contains(vlan) && vlan.getNumero()!=0) {
                 vlansToRemove.add(vlan);
             }
@@ -234,11 +243,11 @@ public class MonitoringServiceImpl implements MonitoringService {
             interf -> {
                             interf.setNom(interf.getNom() + "_" + sw.getNom());
                             return interf;
-                        }).toList();
+                        }).toList();//add the switch name as prefix to insure interface name uniqueness.we already inforced switch name uniqueness during creation
 
-        List<Interface> existingInterfaces =interfaceRepo.findByNomEndingWith("_" + sw.getNom());
+        List<Interface> existingInterfaces =interfaceRepo.findByNomEndingWith("_" + sw.getNom());//get all interfaces related to that exact interface
         for (Interface interf : retreivedInterfaces) {
-            if (!existingInterfaces.contains(interf)) {
+            if (!existingInterfaces.contains(interf)) {//same vlan logic implemented here
                 Vlan vlan = sw.getVlans().stream()
                         .filter(v -> v.getNumero()== interf.getVlan().getNumero())
                         .findFirst().get();
@@ -250,13 +259,13 @@ public class MonitoringServiceImpl implements MonitoringService {
                 Interface existingInterface = existingInterfaces.get(existingInterfaces.indexOf(interf));
                 if (existingInterface.getStatus()== INTERFACE_STATUS_ENUM.UP &&
                         interf.getStatus() == INTERFACE_STATUS_ENUM.DOWN){
-                    eventPublisher.publishEvent(new InterfaceDownEvent(existingInterface.getNom()));
+                    eventPublisher.publishEvent(new InterfaceDownEvent(existingInterface.getNom()));// notify that the interface is down
                 }
 
                 existingInterface.setStatus(interf.getStatus());
                 Vlan vlan = sw.getVlans().stream()
                         .filter(v -> v.getNumero()== interf.getVlan().getNumero())
-                        .findFirst().get();
+                        .findFirst().get();// we are insuring that the vlan exists because of our parsing logic
                 vlan.getInterfaces().add(existingInterface);
                 existingInterface.setVlan(vlan);
 
@@ -273,48 +282,49 @@ public class MonitoringServiceImpl implements MonitoringService {
         }
     }
     private void synchronizeMacAddresses(Switch sw, String macAdresse) {
-        Map<String, Ordinateur> MacTable = parseMacAddressTable(macAdresse);
+        Map<String, Ordinateur> MacTable = parseMacAddressTable(macAdresse);// get the mac adress infos from the response
 
-        for (Map.Entry<String, Ordinateur> entry : MacTable.entrySet()) {
+        for (Map.Entry<String, Ordinateur> entry : MacTable.entrySet()) {//loop through the mac address table
             String port = entry.getKey();
             Ordinateur ordinateur = entry.getValue();
 
             Optional<Interface> candidateInterface = interfaceRepo.findByNom(port+"_"+sw.getNom());
-            if (candidateInterface.isEmpty()){
+            if (candidateInterface.isEmpty()){//if the interface does not exist in our database we skip it this is useful when we have a mac address that is assigned to CPU for example.
                 continue;
             }
             Interface exestingInterface = candidateInterface.get();
             Optional<Connection> interfaceConnection = exestingInterface.getConnections()
                     .stream()
                     .filter(c->c.getStatus()== CONNECTION_STATUS_ENUM.ACTIVE)
-                    .findFirst();
+                    .findFirst();//fetch active connections for that interface if exists
             if (interfaceConnection.isPresent() &&
                     interfaceConnection
                     .get().getOrdinateur()
-                    .getMacAdress().equals(ordinateur.getMacAdress())) {
+                    .getMacAdress().equals(ordinateur.getMacAdress())) {// if exists and the database has that exact connection.no changes are applied we only log
                 System.out.println("Connection already exists for interface " + port + " and MAC " + ordinateur.getMacAdress());
 
             }else {
-                if(interfaceConnection.isPresent()) {
+                if(interfaceConnection.isPresent()) {//if the connection exists and its not the exact mac address in the table we make the current connection in_active
                     Connection existingConnection = interfaceConnection.get();
                     existingConnection.setStatus(CONNECTION_STATUS_ENUM.INACTIVE);
                 }
+                //unified logic between not having an active connection in the first place or making previous connection inactive due to mismatch
                 Optional<Ordinateur> existingOrdinateur = ordinateurRepo.findByMacAdress(ordinateur.getMacAdress());
-                if (existingOrdinateur.isPresent()){
+                if (existingOrdinateur.isPresent()){// we look for the pc for that exact mac adress if exists we create an active connection between the two
                     Connection newConnection = new Connection();
                     newConnection.setOrdinateur(existingOrdinateur.get());
                     newConnection.setStatus(CONNECTION_STATUS_ENUM.ACTIVE);
                     newConnection.setSwitchInterface(exestingInterface);
                     exestingInterface.getConnections().add(newConnection);
                     interfaceRepo.save(exestingInterface);
-                }else{
+                }else{//if it does not exist we create an alert tied to that exact interface
                     System.out.println("Ordinateur with MAC " + ordinateur.getMacAdress() + " not found in the database.");
                     alertRepo.deleteAllByswitchInterface(exestingInterface);
                     Alert alert = new Alert();
                     alert.setSwitchInterface(exestingInterface);
                     alert.setMacAddress(ordinateur.getMacAdress());
                     alertRepo.save(alert);
-                    eventPublisher.publishEvent(new UnknownMacAddressEvent(ordinateur.getMacAdress(), exestingInterface.getNom()));
+                    eventPublisher.publishEvent(new UnknownMacAddressEvent(ordinateur.getMacAdress(), exestingInterface.getNom()));//notify about unknown mac address
                 }
             }
 

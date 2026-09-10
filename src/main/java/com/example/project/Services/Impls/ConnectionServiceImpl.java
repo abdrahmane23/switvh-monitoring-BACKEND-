@@ -28,7 +28,7 @@ public class ConnectionServiceImpl implements ConnectionService {
                 .stream()
                 .filter(
                         c-> c.getStatus() == CONNECTION_STATUS_ENUM.INACTIVE
-                ).toList();
+                ).toList();// get only connections that are in_active as they are the ones that represents pc history
 
         return connections ;
     }
@@ -42,7 +42,7 @@ public class ConnectionServiceImpl implements ConnectionService {
                 .stream()
                 .filter(
                         c-> c.getStatus() == CONNECTION_STATUS_ENUM.INACTIVE
-                ).toList();
+                ).toList(); //get only connections that are in_active as they are the ones that represents pc history
 
         return inActiveConnections ;
     }
