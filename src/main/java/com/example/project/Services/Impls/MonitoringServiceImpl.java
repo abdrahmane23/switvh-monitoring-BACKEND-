@@ -7,6 +7,7 @@ import com.example.project.Domain.Enums.INTERFACE_STATUS_ENUM;
 import com.example.project.Domain.Enums.SWITCH_STATUS_ENUM;
 import com.example.project.Event.InterfaceDownEvent;
 import com.example.project.Event.UnknownMacAddressEvent;
+import com.example.project.Exceptions.SwitchConnectionException;
 import com.example.project.Repositories.*;
 import com.example.project.Services.EncryptionService;
 import com.example.project.Services.MonitoringService;
@@ -18,6 +19,7 @@ import org.apache.commons.net.telnet.TelnetClient;
 import org.apache.sshd.client.SshClient;
 import org.apache.sshd.client.session.ClientSession;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
@@ -53,14 +55,12 @@ public class MonitoringServiceImpl implements MonitoringService {
         String macAdresse ;
 
         if (sw.getSshConnection() != null) {
-            System.out.println(encryptionService.decrypt(sw.getSshConnection().getPassword()));
             SshClient sshClient = SshClient.setUpDefaultClient();
             sshClient.start();
             try (ClientSession session =
                          sshClient.connect(sw.getSshConnection().getUsername(), sw.getIp(), 22)
                                  .verify()
                                  .getSession()) {
-                System.out.println(encryptionService.decrypt(sw.getSshConnection().getPassword()));
                 session.addPasswordIdentity(encryptionService.decrypt(sw.getSshConnection().getPassword()));
                 session.auth().verify();
 
@@ -72,12 +72,15 @@ public class MonitoringServiceImpl implements MonitoringService {
 
             } catch (IOException ex) {
                 switchService.makeSwitchDown(sw);
-                throw new RuntimeException("Erreur lors de la connexion SSH au switch: " + sw.getNom()+"le problem persist verify les informations de votre switch ");
+                throw new SwitchConnectionException("Erreur lors de la connexion SSH au switch: " + sw.getNom()+" si le problem persist verify les informations de votre switch ");
+            }
+            finally {
+                sshClient.stop();
             }
         }
         else {
+            TelnetClient telnetClient = new TelnetClient();
             try{
-                TelnetClient telnetClient = new TelnetClient();
 
                 telnetClient.connect(sw.getIp(), 23);
                 OutputStream output = telnetClient.getOutputStream();
@@ -86,20 +89,27 @@ public class MonitoringServiceImpl implements MonitoringService {
 
                 executeTelnetAuth(encryptionService.decrypt(sw.getTelnetConnection().getPassword()),input,output);
 
-                getTelnetResponse("terminal length 0\r\n",input,output);
-                vlanBrief= extractTelnetCommandOutput(getTelnetResponse("show vlan brief \r\n",input,output));
-                interfaceInfos = extractTelnetCommandOutput(getTelnetResponse("show interfaces status \r\n",input,output));
-                macAdresse = extractTelnetCommandOutput(getTelnetResponse("show mac address-table \r\n",input,output));
+                getTelnetResponse("terminal length 0"+System.lineSeparator(),input,output);
+                vlanBrief= extractTelnetCommandOutput(getTelnetResponse("show vlan brief "+System.lineSeparator(),input,output));
+                interfaceInfos = extractTelnetCommandOutput(getTelnetResponse("show interfaces status "+System.lineSeparator(),input,output));
+                macAdresse = extractTelnetCommandOutput(getTelnetResponse("show mac address-table "+System.lineSeparator(),input,output));
                 sw.setStatus(SWITCH_STATUS_ENUM.CONNECTE);
-
-                telnetClient.disconnect();
 
 
             } catch (IOException e) {
                 switchService.makeSwitchDown(sw);
-                throw new RuntimeException("Erreur lors de la connexion SSH au switch: " + sw.getNom());            }
+                throw new SwitchConnectionException("Erreur lors de la connexion telnet au switch: " + sw.getNom()+" si le problem persist verify les informations de votre switch ");
+            }
+            finally {
+                try {
+                    if (telnetClient.isConnected()) {
+                        telnetClient.disconnect();
+                    }
+                } catch (IOException e) {
+                    System.out.println("Failed to close Telnet connection");
+                }
+            }
         }
-
         synchronizeVlans(sw, vlanBrief);
         synchronizeInterfaces(sw, interfaceInfos);
         synchronizeMacAddresses(sw, macAdresse);
@@ -116,7 +126,7 @@ public class MonitoringServiceImpl implements MonitoringService {
         if(!response.endsWith("Password: "))
             throw new IOException();// exception will be suppressed by our business exception so no need to add message
 
-        output.write((password+"\r\n").getBytes(StandardCharsets.UTF_8));
+        output.write((password+System.lineSeparator()).getBytes(StandardCharsets.UTF_8));
         output.flush();
 
         response = ReadCommandResponse(input);
@@ -156,7 +166,6 @@ public class MonitoringServiceImpl implements MonitoringService {
     private boolean isEndOfCommand(String response) {
         return response.matches("(?s).*\\r?\\n?[A-Za-z0-9_-]+[>#]\\s*$");
     }
-
     private String getTelnetResponse (String command , InputStream input, OutputStream output ) throws IOException {
         output.write(command.getBytes(StandardCharsets.UTF_8)
         );
@@ -183,12 +192,12 @@ public class MonitoringServiceImpl implements MonitoringService {
 
         return response.toString(StandardCharsets.UTF_8);
     }
+
+
+
     private void synchronizeVlans(Switch sw, String vlanBrief) {
         List<Vlan> retreivedVlans = parseVlanInfos(vlanBrief);
-        retreivedVlans.forEach(v-> System.out.print(v.getNom()+"  "));
-        System.out.println();
         List<Vlan> existingVlans = sw.getVlans();
-        existingVlans.forEach(v-> System.out.print(v.getNom()+"   "));
 
 
         for (Vlan vlan : retreivedVlans) {
@@ -202,21 +211,24 @@ public class MonitoringServiceImpl implements MonitoringService {
                 existingVlan.setStatus(vlan.getStatus());
             }
         }
+
         List<Vlan> vlansToRemove = new ArrayList<>();
 
         for (Vlan vlan : existingVlans) {
-            if (!retreivedVlans.contains(vlan)) {
+            if (!retreivedVlans.contains(vlan) && vlan.getNumero()!=0) {
                 vlansToRemove.add(vlan);
-                vlan.setSwitchEntity(null);
             }
         }
-        existingVlans.removeAll(vlansToRemove);
+        for (Vlan vlan: vlansToRemove){
+            existingVlans.remove(vlan);
+            vlan.setSwitchEntity(null);
+        }
         switchRepo.save(sw);
 
     }
     private void synchronizeInterfaces(Switch sw, String interfaceInfos) {
-        Map<Integer,Vlan> vlaByNumber = sw.getVlans().stream().collect(Collectors.toMap(Vlan::getNumero, v -> v));
-        List<Interface> retreivedInterfaces = parseInterfaceResponse(interfaceInfos,vlaByNumber)
+        Map<Integer,Vlan> vlanByNumber = sw.getVlans().stream().collect(Collectors.toMap(Vlan::getNumero, v -> v));
+        List<Interface> retreivedInterfaces = parseInterfaceResponse(interfaceInfos,vlanByNumber)
                 .stream()
                 .map(
             interf -> {
@@ -224,20 +236,16 @@ public class MonitoringServiceImpl implements MonitoringService {
                             return interf;
                         }).toList();
 
-        retreivedInterfaces.forEach(i-> System.out.println(i.getNom()));
-        System.out.println("Retreived Interfaces: " + retreivedInterfaces);
-        List <Interface> existingInterfaces = interfaceRepo.findAll();
-        // TO BE HANDLED
+        List<Interface> existingInterfaces =interfaceRepo.findByNomEndingWith("_" + sw.getNom());
         for (Interface interf : retreivedInterfaces) {
             if (!existingInterfaces.contains(interf)) {
-                Optional<Vlan> vlan = sw.getVlans().stream()
+                Vlan vlan = sw.getVlans().stream()
                         .filter(v -> v.getNumero()== interf.getVlan().getNumero())
-                        .findFirst();
-                if(vlan.isPresent()) {
-                    vlan.get().getInterfaces().add(interf);
-                    interf.setVlan(vlan.get());
+                        .findFirst().get();
+                    vlan.getInterfaces().add(interf);
+                    interf.setVlan(vlan);
                     interfaceRepo.save(interf);
-                }
+
             } else{
                 Interface existingInterface = existingInterfaces.get(existingInterfaces.indexOf(interf));
                 if (existingInterface.getStatus()== INTERFACE_STATUS_ENUM.UP &&
@@ -246,20 +254,21 @@ public class MonitoringServiceImpl implements MonitoringService {
                 }
 
                 existingInterface.setStatus(interf.getStatus());
-                Vlan existingVlan = vlanRepo.findByNumero(interf.getVlan().getNumero());
-                existingVlan.getInterfaces().add(existingInterface);
-                existingInterface.setVlan(existingVlan);
+                Vlan vlan = sw.getVlans().stream()
+                        .filter(v -> v.getNumero()== interf.getVlan().getNumero())
+                        .findFirst().get();
+                vlan.getInterfaces().add(existingInterface);
+                existingInterface.setVlan(vlan);
 
 
             }
         }
+
         for (Interface interf : existingInterfaces) {
             if (!retreivedInterfaces.contains(interf)) {
                 Vlan existingVlan = interf.getVlan();
-                if (existingVlan != null) {
                     existingVlan.getInterfaces().remove(interf);
                     interf.setVlan(null);
-                }
             }
         }
     }
@@ -270,8 +279,11 @@ public class MonitoringServiceImpl implements MonitoringService {
             String port = entry.getKey();
             Ordinateur ordinateur = entry.getValue();
 
-            Interface exestingInterface = interfaceRepo.findByNom(port+"_"+sw.getNom());
-            System.out.println(exestingInterface);
+            Optional<Interface> candidateInterface = interfaceRepo.findByNom(port+"_"+sw.getNom());
+            if (candidateInterface.isEmpty()){
+                continue;
+            }
+            Interface exestingInterface = candidateInterface.get();
             Optional<Connection> interfaceConnection = exestingInterface.getConnections()
                     .stream()
                     .filter(c->c.getStatus()== CONNECTION_STATUS_ENUM.ACTIVE)

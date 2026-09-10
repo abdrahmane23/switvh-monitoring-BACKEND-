@@ -1,6 +1,5 @@
 package com.example.project.Domain.Entities;
 
-import com.example.project.Domain.Enums.CONNECTION_STATUS_ENUM;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;

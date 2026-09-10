@@ -22,9 +22,5 @@ public class CreateOrdinateurRequestDto {
     )
     private String addressIp ;
 
-    @Pattern(
-            regexp = "^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$",
-            message = "Invalid MAC address format"
-    )
     private String macAdress;
 }

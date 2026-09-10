@@ -58,9 +58,9 @@ public class ResponseParser {
             return null;
         }
 
-        return switch (raw.trim().toUpperCase()) {
-            case "ACTIVE" -> VLAN_STATUS_ENUM.ACTIVE;
-            case "ACT/UNSUP" -> VLAN_STATUS_ENUM.NON_ACTIVE;
+        return switch (raw.trim().toLowerCase()) {
+            case "active" -> VLAN_STATUS_ENUM.ACTIVE;
+            case "act/unsup" -> VLAN_STATUS_ENUM.NON_ACTIVE;
             default -> null;
         };
     }
@@ -69,6 +69,7 @@ public class ResponseParser {
         List<Interface> interfaces = new ArrayList<>();
 
         String[] lines = rawResponse.split("\\r?\\n");
+        System.out.println(Arrays.toString(lines));
 
         for (String line : lines) {
 
@@ -94,16 +95,17 @@ public class ResponseParser {
             String statusStr = tokens[statusIndex];
             String vlanStr = tokens[statusIndex + 1];
 
-            // skip trunk ports entirely
             if ("trunk".equalsIgnoreCase(vlanStr)) {
+                Interface iface = new Interface();
+                iface.setNom(portName);
+                iface.setStatus(mapInterfaceStatus(statusStr));
+                iface.setVlan(vlansByNumero.get(0));
+                interfaces.add(iface);
                 continue;
             }
 
             // skip monitor-status ports entirely
             if ("monitor".equalsIgnoreCase(statusStr)) {
-                continue;
-            }
-            if ("CPU".equalsIgnoreCase(statusStr)) {
                 continue;
             }
 
@@ -117,7 +119,11 @@ public class ResponseParser {
             Interface iface = new Interface();
             iface.setNom(portName);
             iface.setStatus(mapInterfaceStatus(statusStr));
-            iface.setVlan(vlansByNumero.get(vlanNumero));
+            Vlan vlan = vlansByNumero.get(vlanNumero);
+            if (vlan==null)
+                continue;
+            iface.setVlan(vlan);
+
 
             interfaces.add(iface);
         }
@@ -165,6 +171,7 @@ public class ResponseParser {
                 String macAddress = matcher.group(2);
                 String portName = matcher.group(4);
 
+
                 Ordinateur ordinateur = new Ordinateur();
                 ordinateur.setMacAdress(macAddress);
 
@@ -179,7 +186,7 @@ public class ResponseParser {
 
         return String.join(
                 System.lineSeparator(),
-                Arrays.copyOfRange(lines, 1, lines.length - 1)
+                Arrays.copyOfRange(lines, 0, lines.length - 1)
         );
     }
 }

@@ -4,7 +4,6 @@ import com.example.project.Domain.Dtos.*;
 import com.example.project.Domain.Entities.Connection;
 import com.example.project.Domain.Entities.Interface;
 import com.example.project.Domain.Entities.Ordinateur;
-import com.example.project.Domain.Entities.Utilisateur;
 import com.example.project.Domain.Enums.CONNECTION_STATUS_ENUM;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;

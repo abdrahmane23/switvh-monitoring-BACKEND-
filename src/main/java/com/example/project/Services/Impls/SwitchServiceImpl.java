@@ -1,16 +1,16 @@
 package com.example.project.Services.Impls;
 
 import com.example.project.Domain.Dtos.CreateSwitchRequestDto;
-import com.example.project.Domain.Entities.Ordinateur;
-import com.example.project.Domain.Entities.SshConnection;
-import com.example.project.Domain.Entities.Switch;
-import com.example.project.Domain.Entities.TelnetConnection;
+import com.example.project.Domain.Entities.*;
 import com.example.project.Domain.Enums.SWITCH_STATUS_ENUM;
+import com.example.project.Domain.Enums.VLAN_STATUS_ENUM;
 import com.example.project.Event.SwitchDownEvent;
 import com.example.project.Exceptions.OrdinateurAlreadyExistException;
+import com.example.project.Exceptions.SwitchAlreadyExistsException;
 import com.example.project.Repositories.SshconnectionRepo;
 import com.example.project.Repositories.SwitchRepo;
 import com.example.project.Repositories.TelnetConnectionRepo;
+import com.example.project.Repositories.VlanRepo;
 import com.example.project.Services.EncryptionService;
 import com.example.project.Services.SwitchService;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +30,7 @@ public class SwitchServiceImpl implements SwitchService {
     private final SwitchRepo switchRepo;
     private final SshconnectionRepo sshconnectionRepo;
     private final TelnetConnectionRepo telnetConnectionRepo;
+    private final VlanRepo vlanRepo;
     private final ApplicationEventPublisher eventPublisher;
     private final EncryptionService encryptionService;
 
@@ -37,10 +38,10 @@ public class SwitchServiceImpl implements SwitchService {
     @Transactional
     public void createSwitch(CreateSwitchRequestDto newSwitch) {
         if (switchRepo.existsByNom(newSwitch.getNom())) {
-            throw new RuntimeException("Switch avec ce nom  existe déjà");
+            throw new SwitchAlreadyExistsException("Switch avec ce nom  existe déjà");
         }
         if (switchRepo.existsByIp(newSwitch.getIp())){
-            throw new RuntimeException("Switch avec cette IP existe déjà");
+            throw new SwitchAlreadyExistsException("Switch avec cette IP existe déjà");
         }
         Switch switchToSave = new Switch();
         switchToSave.setNom(newSwitch.getNom());
@@ -58,6 +59,14 @@ public class SwitchServiceImpl implements SwitchService {
             sshconnectionRepo.save(sshConnection);
             switchToSave.setSshConnection(sshConnection);
         }
+
+        Vlan trunkVlan = new Vlan();
+        trunkVlan.setNom("trunk");
+        trunkVlan.setNumero(0);
+        trunkVlan.setStatus(VLAN_STATUS_ENUM.ACTIVE);
+        trunkVlan.setSwitchEntity(switchToSave);
+        vlanRepo.save(trunkVlan);
+        switchToSave.getVlans().add(trunkVlan);
     }
 
     @Override
@@ -102,12 +111,12 @@ public class SwitchServiceImpl implements SwitchService {
     private void checkSwitchUniquenessForEdit(String nom , String ip, UUID switchId) {
         Optional<Switch> existingSwitchByNom = switchRepo.findByNom(nom);
         if (existingSwitchByNom.isPresent() && !existingSwitchByNom.get().getId().equals(switchId)) {
-            throw new OrdinateurAlreadyExistException("Un ordinateur avec le même nom existe déjà.");
+            throw new SwitchAlreadyExistsException("Un ordinateur avec le même nom existe déjà.");
         }
 
         Optional<Switch> existingSwitchByIp = switchRepo.findByIp(ip);
         if (existingSwitchByIp.isPresent() && !existingSwitchByIp.get().getId().equals(switchId)) {
-            throw new OrdinateurAlreadyExistException("Un ordinateur avec la même adresse MAC existe déjà.");
+            throw new SwitchAlreadyExistsException("Un ordinateur avec la même adresse MAC existe déjà.");
         }
     }
 }

@@ -18,4 +18,6 @@ public interface OrdinateurRepo extends JpaRepository<Ordinateur, UUID> {
     Optional<Ordinateur> findByMacAdress(String macAdress);
 
     boolean existsByAddressIp(String addressIp);
+
+    Optional<Ordinateur> findByAddressIp(String addressIp);
 }

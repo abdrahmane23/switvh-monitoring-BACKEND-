@@ -23,7 +23,7 @@ public class OrdinateurController {
     private final OrdinateurService ordinateurService;
     private final OrdinateurMapper ordinateurMapper;
 
-    @PostMapping("api/Services/{serviceId}/ordinateur")
+    @PostMapping("api/service/{serviceId}/ordinateur")
     public ResponseEntity<Void> createPc(
             @PathVariable UUID serviceId,
             @Valid @RequestBody CreateOrdinateurRequestDto createOrdinateurRequestDto

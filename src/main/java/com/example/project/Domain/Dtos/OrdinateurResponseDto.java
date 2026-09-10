@@ -12,5 +12,5 @@ public class OrdinateurResponseDto {
     private UUID id;
     private String nom;
     private String marque;
-    private String AddressIp;
+    private String addressIp;
 }

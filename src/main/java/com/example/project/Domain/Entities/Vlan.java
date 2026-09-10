@@ -30,7 +30,7 @@ public class Vlan {
     private UUID id;
     @Column
     private int numero;
-    @Column(unique = true)
+    @Column()
     private String nom;
     @Column
     private VLAN_STATUS_ENUM status;

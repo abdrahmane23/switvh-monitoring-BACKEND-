@@ -4,6 +4,7 @@ import com.example.project.Domain.Entities.Connection;
 import com.example.project.Domain.Entities.Interface;
 import com.example.project.Domain.Entities.Ordinateur;
 import com.example.project.Domain.Enums.CONNECTION_STATUS_ENUM;
+import com.example.project.Exceptions.InterfaceNotFoundException;
 import com.example.project.Exceptions.OrdinateurNotFoundException;
 import com.example.project.Repositories.InterfaceRepo;
 import com.example.project.Repositories.OrdinateurRepo;
@@ -34,7 +35,7 @@ public class ConnectionServiceImpl implements ConnectionService {
     @Override
     public List<Connection> getInterfaceHistory(UUID interfaceId) {
         Interface interfaceDetails = interfaceRepo.findById(interfaceId).orElseThrow(
-                () -> new RuntimeException("Interface n'existe pas")
+                () -> new InterfaceNotFoundException("Interface n'existe pas")
         );
 
         List<Connection> inActiveConnections = interfaceDetails.getConnections()

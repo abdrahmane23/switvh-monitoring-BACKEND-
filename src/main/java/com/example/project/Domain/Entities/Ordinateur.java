@@ -32,7 +32,7 @@ public class Ordinateur {
     private String marque;
 
     @Column(unique = true)
-    private String AddressIp;
+    private String addressIp;
 
     @Column(unique = true)
     private String macAdress;

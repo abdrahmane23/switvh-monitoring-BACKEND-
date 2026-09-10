@@ -15,4 +15,6 @@ public interface NotificationService {
     void sendNotificationToAll(NotificationDto message);
 
     List<Notification> fetchAllNotification();
+
+    void deleteExpiredNotifications();
 }

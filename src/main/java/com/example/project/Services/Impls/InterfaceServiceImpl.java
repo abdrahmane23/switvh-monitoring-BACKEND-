@@ -4,6 +4,8 @@ import com.example.project.Domain.Entities.Connection;
 import com.example.project.Domain.Entities.Interface;
 import com.example.project.Domain.Entities.Vlan;
 import com.example.project.Domain.Enums.CONNECTION_STATUS_ENUM;
+import com.example.project.Exceptions.InterfaceNotFoundException;
+import com.example.project.Exceptions.VlanNotFoundException;
 import com.example.project.Repositories.InterfaceRepo;
 import com.example.project.Repositories.VlanRepo;
 import com.example.project.Services.InterfaceService;
@@ -21,7 +23,7 @@ public class InterfaceServiceImpl implements InterfaceService {
 
     @Override
     public List<Interface> getInterfaces(UUID vlanId) {
-        Vlan vlan = vlanRepo.findById(vlanId).orElseThrow(() -> new RuntimeException("vlan n'existe pas"));
+        Vlan vlan = vlanRepo.findById(vlanId).orElseThrow(() -> new VlanNotFoundException("vlan n'existe pas"));
         return vlan.getInterfaces();
 
     }
@@ -29,7 +31,7 @@ public class InterfaceServiceImpl implements InterfaceService {
     @Override
     public Interface getInterfaceDetails(UUID interfaceId) {
         return interfaceRepo.findById(interfaceId).orElseThrow(
-                () -> new RuntimeException("Interface n'existe pas")
+                () -> new InterfaceNotFoundException("Interface n'existe pas")
         );
 
     }

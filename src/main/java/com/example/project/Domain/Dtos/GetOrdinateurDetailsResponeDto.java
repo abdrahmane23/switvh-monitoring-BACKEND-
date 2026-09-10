@@ -12,7 +12,7 @@ public class GetOrdinateurDetailsResponeDto {
     private UUID id;
     private String nom;
     private String marque;
-    private String AddressIp;
+    private String addressIp;
     private String macAdress;
     private ActiveConnectionForPcResponseDto connection;
 }

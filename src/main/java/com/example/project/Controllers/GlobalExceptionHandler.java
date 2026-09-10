@@ -2,9 +2,7 @@ package com.example.project.Controllers;
 
 
 import com.example.project.Domain.Dtos.ErrorDto;
-import com.example.project.Exceptions.OrdinateurAlreadyExistException;
-import com.example.project.Exceptions.ServiceAlreadyExistsException;
-import com.example.project.Exceptions.ServiceNotFoundException;
+import com.example.project.Exceptions.*;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.action.internal.UnresolvedEntityInsertActions;
@@ -28,12 +26,43 @@ public class GlobalExceptionHandler {
         errorDto.setError("service déjà existant");
         return new ResponseEntity<>(errorDto, HttpStatus.CONFLICT);
     }
+    @ExceptionHandler(InterfaceNotFoundException.class)
+    public ResponseEntity<ErrorDto> handleInterfaceNotFoundException(InterfaceNotFoundException ex) {
+        log.error("Caught InterfaceNotFoundException", ex);
+        ErrorDto errorDto = new ErrorDto();
+        errorDto.setError("interface introuvable");
+        return new ResponseEntity<>(errorDto, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(OrdinateurNotFoundException.class)
+    public ResponseEntity<ErrorDto> handleOrdinateurNotFoundException(OrdinateurNotFoundException ex) {
+        log.error("Caught OrdinateurNotFoundException", ex);
+        ErrorDto errorDto = new ErrorDto();
+        errorDto.setError("ordinateur introuvable");
+        return new ResponseEntity<>(errorDto, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(VlanNotFoundException.class)
+    public ResponseEntity<ErrorDto> handleVlanNOTFoundException(VlanNotFoundException ex) {
+        log.error("Caught VlanNOTFoundException", ex);
+        ErrorDto errorDto = new ErrorDto();
+        errorDto.setError("VLAN introuvable");
+        return new ResponseEntity<>(errorDto, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(SwitchAlreadyExistsException.class)
+    public ResponseEntity<ErrorDto> handleSwitchAlreadyExistsException(SwitchAlreadyExistsException ex) {
+        log.error("Caught SwitchAlreadyExistsException", ex);
+        ErrorDto errorDto = new ErrorDto();
+        errorDto.setError("switch déjà existant");
+        return new ResponseEntity<>(errorDto, HttpStatus.CONFLICT);
+    }
     @ExceptionHandler(ServiceNotFoundException.class)
     public ResponseEntity<ErrorDto> handleServiceNotFoundException(ServiceNotFoundException ex){
         log.error("Caught ServiceNotFoundException", ex);
         ErrorDto errorDto = new ErrorDto();
         errorDto.setError("service n'existe pas ");
-        return new ResponseEntity<>(errorDto, HttpStatus.BAD_REQUEST);
+        return new ResponseEntity<>(errorDto, HttpStatus.NOT_FOUND);
     }
     @ExceptionHandler(OrdinateurAlreadyExistException.class)
     public ResponseEntity<ErrorDto> handleOrdinateurAlreadyExistException(OrdinateurAlreadyExistException ex) {

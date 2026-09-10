@@ -1,18 +1,14 @@
 package com.example.project.Services.Impls;
 
 import com.example.project.Domain.Dtos.CreateOrdinateurRequestDto;
-import com.example.project.Domain.Dtos.CreateUtilisateurRequestDto;
-import com.example.project.Domain.Entities.Connection;
+
 import com.example.project.Domain.Entities.Ordinateur;
 import com.example.project.Domain.Entities.Service;
-import com.example.project.Domain.Entities.Utilisateur;
-import com.example.project.Domain.Enums.CONNECTION_STATUS_ENUM;
 import com.example.project.Exceptions.OrdinateurAlreadyExistException;
 import com.example.project.Exceptions.OrdinateurNotFoundException;
 import com.example.project.Exceptions.ServiceNotFoundException;
 import com.example.project.Repositories.OrdinateurRepo;
 import com.example.project.Repositories.ServiceRepo;
-import com.example.project.Repositories.UtilisateurRepo;
 import com.example.project.Services.OrdinateurService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +21,6 @@ import java.util.UUID;
 public class OrdinateurServiceImpl implements OrdinateurService {
     private final ServiceRepo serviceRepository;
     private final OrdinateurRepo ordinateurRepository;
-    private final UtilisateurRepo utilisateurRepo;
 
 
 
@@ -40,6 +35,7 @@ public class OrdinateurServiceImpl implements OrdinateurService {
         ordinateur.setNom(createOrdinateurRequestDto.getNom());
         ordinateur.setMarque(createOrdinateurRequestDto.getMarque());
         ordinateur.setMacAdress(createOrdinateurRequestDto.getMacAdress());
+        ordinateur.setAddressIp(createOrdinateurRequestDto.getAddressIp());
         ordinateur.setService(service);
 
         ordinateurRepository.save(ordinateur);
@@ -61,6 +57,7 @@ public class OrdinateurServiceImpl implements OrdinateurService {
         ordinateur.setNom(createOrdinateurRequestDto.getNom());
         ordinateur.setMarque(createOrdinateurRequestDto.getMarque());
         ordinateur.setMacAdress(createOrdinateurRequestDto.getMacAdress());
+        ordinateur.setAddressIp(createOrdinateurRequestDto.getAddressIp());
 
 
     }
@@ -83,27 +80,6 @@ public class OrdinateurServiceImpl implements OrdinateurService {
         );
         ordinateur.getConnections().clear();
         ordinateurRepository.delete(ordinateur);
-    }
-
-    @Override
-    @Transactional
-    public void movePc(UUID serviceId, UUID ordinateurId) {
-        Ordinateur ordinateur = ordinateurRepository.findById(ordinateurId).orElseThrow(
-                () -> new OrdinateurNotFoundException("Ordinateur n'existe pas")
-        );
-
-        if(ordinateur.getService().getId().equals(serviceId)){
-            throw new OrdinateurAlreadyExistException("Ordinateur est déjà dans ce service");
-        }
-
-        Service service = serviceRepository.findById(serviceId).orElseThrow(
-                () -> new ServiceNotFoundException("Service n'exist pas")
-        );
-
-        ordinateur.setService(service);
-
-
-
     }
 
     private void checkPcUniqueness(String Nom, String macAdress,String addressIp ) {
@@ -131,10 +107,9 @@ public class OrdinateurServiceImpl implements OrdinateurService {
         if (existingOrdinateurByMac.isPresent() && !existingOrdinateurByMac.get().getId().equals(ordinateurId)) {
             throw new OrdinateurAlreadyExistException("Un ordinateur avec la même adresse MAC existe déjà.");
         }
-        Optional<Ordinateur> existingOrdinateurByAddressIp = ordinateurRepository.findByMacAdress(addressIp);
+        Optional<Ordinateur> existingOrdinateurByAddressIp = ordinateurRepository.findByAddressIp(addressIp);
         if (existingOrdinateurByAddressIp.isPresent() && !existingOrdinateurByAddressIp.get().getId().equals(ordinateurId)) {
             throw new OrdinateurAlreadyExistException("Un ordinateur avec la même adresse MAC existe déjà.");
         }
-
     }
 }

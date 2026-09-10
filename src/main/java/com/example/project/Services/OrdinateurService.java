@@ -19,6 +19,5 @@ public interface OrdinateurService {
 
     void deletePc(UUID ordinateurId);
 
-    void movePc(UUID serviceId, UUID ordinateurId);
 
 }

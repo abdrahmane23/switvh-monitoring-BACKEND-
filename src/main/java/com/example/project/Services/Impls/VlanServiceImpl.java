@@ -2,6 +2,7 @@ package com.example.project.Services.Impls;
 
 import com.example.project.Domain.Entities.Switch;
 import com.example.project.Domain.Entities.Vlan;
+import com.example.project.Exceptions.VlanNotFoundException;
 import com.example.project.Repositories.SwitchRepo;
 import com.example.project.Services.VlanService;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +18,7 @@ public class VlanServiceImpl implements VlanService {
     @Override
     public List<Vlan> getAllVlans(UUID switchId) {
         Switch switchEntity= switchRepo.findById(switchId).orElseThrow(
-                () -> new RuntimeException("Switch not found")
+                () -> new VlanNotFoundException("Switch not found")
         );
         return switchEntity.getVlans();
 

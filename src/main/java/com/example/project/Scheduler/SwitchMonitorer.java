@@ -3,6 +3,7 @@ package com.example.project.Scheduler;
 
 import com.example.project.Domain.Dtos.NotificationDto;
 import com.example.project.Domain.Entities.Switch;
+import com.example.project.Exceptions.SwitchConnectionException;
 import com.example.project.Repositories.SwitchRepo;
 import com.example.project.Services.MonitoringService;
 import com.example.project.Services.NotificationService;
@@ -29,7 +30,11 @@ public class SwitchMonitorer {
         System.out.println("Monitoring switches...");
         List<Switch> switches = switchRepo.findAll();
         for (Switch sw : switches) {
-            monitoringService.monitorSwitch(sw);
+            try {
+                monitoringService.monitorSwitch(sw);
+            } catch (SwitchConnectionException ex) {
+                System.out.println(ex);
+            }
         }
     }
 }

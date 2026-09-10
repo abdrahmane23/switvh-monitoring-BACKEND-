@@ -44,11 +44,13 @@ public class Interface {
     private LocalDateTime updatedAt;
 
 
-    @OneToMany(mappedBy = "switchInterface", cascade = CascadeType.ALL,orphanRemoval = true)
+    @OneToMany(mappedBy = "switchInterface", cascade = CascadeType.ALL,fetch = FetchType.EAGER, orphanRemoval = true)
     private List<Connection> connections = new ArrayList<>();
 
     @OneToMany(mappedBy = "switchInterface", cascade = CascadeType.ALL,orphanRemoval = true)
     private List<Alert> alerts = new ArrayList<>();
+
+
 
     @Override
     public boolean equals(Object o) {
@@ -66,4 +68,13 @@ public class Interface {
     }
 
 
+    @Override
+    public String toString() {
+        return "Interface{" +
+                "id=" + id +
+                ", nom='" + nom + '\'' +
+                ", status=" + status +
+                ", vlan=" + vlan +
+                '}';
+    }
 }
